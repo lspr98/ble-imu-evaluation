@@ -1,0 +1,8 @@
+name: imuvis
+dependencies:
+  - python=3.10
+  - pip:
+    - bleak
+    - panda3d
+    - panda3d-gltf
+    - panda3d-simplepbr
