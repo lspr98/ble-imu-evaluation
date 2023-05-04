@@ -18,7 +18,7 @@ enum SERVER_CMD {
 private:
     BLEServer *server;
     BLEService *service;
-    BLECharacteristic *characteristic, *cmd_characteristic;
+    BLECharacteristic *characteristic, *cmd_characteristic, *status_characteristic;
     BLEAdvertising *advertisement;
     std::string mac_address;
 
@@ -32,8 +32,10 @@ public:
     void onDisconnect(BLEServer* pServer);
     // Implementation of abstract functions for BLECharacteristicCallbacks
     void onWrite(BLECharacteristic* pCharacteristic);
+    
     void startAdvertising();
     void updateData();
+    void printInfo();
 
 };
 

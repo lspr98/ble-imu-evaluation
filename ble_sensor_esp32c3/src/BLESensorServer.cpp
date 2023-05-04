@@ -20,6 +20,7 @@ BLESensorServer::BLESensorServer() {
         BLECharacteristic::PROPERTY_READ | 
         BLECharacteristic::PROPERTY_WRITE
     );
+
     characteristic->addDescriptor(new BLE2902());
     cmd_characteristic->addDescriptor(new BLE2902());
     cmd_characteristic->setCallbacks(this);
@@ -51,6 +52,8 @@ void BLESensorServer::onWrite(BLECharacteristic* pCharacteristic) {
         {
         case SERVER_CMD::SYSTEM_RESTART:
             Serial.println("SYSTEM_RESTART");
+            delay(1000);
+            ESP.restart();
             break;
         
         case SERVER_CMD::SENSOR_RESTART:
@@ -61,8 +64,6 @@ void BLESensorServer::onWrite(BLECharacteristic* pCharacteristic) {
             Serial.println("UNKNOWN");
             break;
         }
-        Serial.print("Raw data: ");
-        Serial.println(pCharacteristic->getValue().c_str());
     }
 }
 
@@ -77,3 +78,8 @@ void BLESensorServer::updateData() {
     characteristic->setValue(std::string((char*)dataBuffer, 12*(sizeof(float))));
     characteristic->notify();
 }
+
+void BLESensorServer::printInfo() {
+    Serial.print("MAC-Address: ");
+    Serial.println(mac_address.c_str());
+};

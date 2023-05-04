@@ -2,3 +2,4 @@
 .vscode
 __pycache__
 config
+ble_sensor_esp32c3/.gitignore

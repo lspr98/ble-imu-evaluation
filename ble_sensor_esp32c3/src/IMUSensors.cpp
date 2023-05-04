@@ -89,7 +89,7 @@ void IMUSensors::setup_filter() {
   // Convert filter time difference into herz
   float filter_frequency = 1000/FILTER_TIME;
   fusion_filter.begin(filter_frequency);
-  fusion_filter.setBeta(0.5);
+  fusion_filter.setBeta(FILTER_GAIN);
   t_last = millis();
 }
 

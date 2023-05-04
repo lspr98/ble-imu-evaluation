@@ -3,6 +3,7 @@ from direct.actor.Actor import Actor
 from direct.task import Task
 from direct.gui.DirectFrame import DirectFrame
 from direct.gui.DirectLabel import DirectLabel
+from direct.gui.DirectButton import DirectButton
 from direct.gui.OnscreenText import OnscreenText
 from panda3d.core import Quat, WindowProperties, TextNode, LVecBase3f
 from bleak import BleakClient
@@ -34,15 +35,20 @@ class IMUVis(ShowBase):
         self.q_bno055 = Quat()
         self.q_lsm6ds = Quat()
 
-        # Rotation offset quaternion
+        # Default Rotation offset quaternion
         self.q_offset = Quat()
         self.q_offset.setHpr(LVecBase3f(-90, 0, 0))
         
+        # Individual rotation offsets
+        self.q_offset_bno08x = self.q_offset
+        self.q_offset_bno055 = self.q_offset
+        self.q_offset_lsm6ds = self.q_offset
+
 
         self.gui = DirectFrame(
             frameColor=(0, 0, 0, 0.1),
             pos=(-1.75, 0, 0.9),
-            frameSize=(-0.05, 0.8, -0.1, 0.1))
+            frameSize=(-0.05, 0.8, -0.2, 0.1))
 
 
         # Set GUI text params
@@ -90,10 +96,40 @@ class IMUVis(ShowBase):
                                                                     text_pos=(0.7, -0.075*idx),
                                                                     **self.gui_text_value_params)
 
+        # Create command buttons
+        self.zero_button = DirectButton(
+            parent=self.gui,
+            frameColor=(0, 0, 0, 0),
+            text_fg=(1, 1, 1, 1),
+            text_bg=(1, 0, 0, 0.3),
+            text=("Zero Orientation"), 
+            scale=0.075, 
+            pos=(3.215, 0, -0.1), 
+            command=self.onZeroOrientationButtonPressed)
+        
+        # Create sensor labels
+        self.label_bno055 = DirectLabel(
+            parent=self.gui, 
+            text="BNO055", 
+            pos=(1.1, 0, -0.8), 
+            scale=0.1, 
+            frameColor=(0, 0, 0, 0))
+        self.label_bno08x = DirectLabel(
+            parent=self.gui, 
+            text="BNO08X", 
+            pos=(1.8, 0, -0.8), 
+            scale=0.1, 
+            frameColor=(0, 0, 0, 0))
+        self.label_lsm6dso = DirectLabel(
+            parent=self.gui, 
+            text="LSM6DSO", 
+            pos=(2.5, 0, -0.8), 
+            scale=0.1, 
+            frameColor=(0, 0, 0, 0))
 
+        # Track amount of recieved IMU dataframes and time delta to estimate rate
         self.n_recv = 0
-        self.last_rate_update = time.time()
-
+        self.last_rate_update = time.time_ns()
 
         self.updateGui()
         
@@ -104,13 +140,15 @@ class IMUVis(ShowBase):
 
         self.disable_mouse()
 
-        # Initialize 3D models of coordinate frames        
-        self.cs_bno08x = self.loader.loadModel("assets/3D_Coordinate_System.gltf")
-        self.cs_bno08x.setScale(0.01, 0.01, 0.01)
-        self.cs_bno08x.setPos(-3, 15, 0)
+        # Initialize 3D models of coordinate frames
         self.cs_bno055 = self.loader.loadModel("assets/3D_Coordinate_System.gltf")
         self.cs_bno055.setScale(0.01, 0.01, 0.01)
-        self.cs_bno055.setPos(0, 15, 0)
+        self.cs_bno055.setPos(-3, 15, 0)
+
+        self.cs_bno08x = self.loader.loadModel("assets/3D_Coordinate_System.gltf")
+        self.cs_bno08x.setScale(0.01, 0.01, 0.01)
+        self.cs_bno08x.setPos(0, 15, 0)
+        
         self.cs_lsm6ds = self.loader.loadModel("assets/3D_Coordinate_System.gltf")
         self.cs_lsm6ds.setScale(0.01, 0.01, 0.01)
         self.cs_lsm6ds.setPos(3, 15, 0)
@@ -129,16 +167,18 @@ class IMUVis(ShowBase):
 
         
     def onBLENotification(self, characteristic: BleakGATTCharacteristic, data: bytearray):
-        self.cs_bno08x.setQuat(self.byteArrayToQuart(data, 0)*self.q_offset)
-        self.cs_bno055.setQuat(self.byteArrayToQuart(data, 4)*self.q_offset)
-        self.cs_lsm6ds.setQuat(self.byteArrayToQuart(data, 8)*self.q_offset)
+        self.q_bno08x = self.byteArrayToQuart(data, 0)
+        self.q_bno055 = self.byteArrayToQuart(data, 4)
+        self.q_lsm6ds = self.byteArrayToQuart(data, 8)
 
         self.n_recv += 1
         if self.n_recv % 100 == 0:
             self.n_recv = 0
-            t_now = time.time()
+            t_now = time.time_ns()
             t_diff = t_now - self.last_rate_update
-            self.gui_elements["esp_notify_rate"]["value"] = round(100/(t_diff))
+            # Prevent division by 0, rates above 1MHz will not be detectable (but are also very unlikely)
+            if t_diff < 1e-6: t_diff += 1e-6
+            self.gui_elements["esp_notify_rate"]["value"] = round(100/(t_diff*1e-9))
             self.last_rate_update = t_now
             self.updateGui()
         return
@@ -153,24 +193,12 @@ class IMUVis(ShowBase):
 
     def byteArrayToHpr(self, b_arr: bytearray, f_offset: int):
         hpr_f = [struct.unpack('<f', b_arr[((i+f_offset)*4):(i+f_offset+1)*4])[0] for i in range(0, 3)]
-        if f_offset == 4:
-            out = LVecBase3f(-hpr_f[0], -hpr_f[1], hpr_f[2])
-        else:
-            out = LVecBase3f(hpr_f[0] + 180, -hpr_f[1], -hpr_f[2])
-        return out
+        return hpr_f
     
     def updateRotation(self, task):
-        # tmp = self.q_bno08x.getHpr()
-        # tmp.set(-tmp.getX(), tmp.getY(), tmp.getZ())
-        # self.cs_bno08x.setHpr(tmp)
-
-        # tmp = self.q_bno055.getHpr()
-        # tmp.set(-tmp.getX(), tmp.getY(), tmp.getZ())
-        # self.cs_bno055.setHpr(tmp)
-
-        # tmp = self.q_lsm6ds.getHpr()
-        # tmp.set(-tmp.getX(), tmp.getY(), tmp.getZ())
-        # self.cs_lsm6ds.setHpr(self.q_lsm6ds.getR(), self.q_lsm6ds.getI(), self.q_lsm6ds.getJ())
+        self.cs_bno08x.setQuat(self.q_bno08x*self.q_offset_bno08x)
+        self.cs_bno055.setQuat(self.q_bno055*self.q_offset_bno055)
+        self.cs_lsm6ds.setQuat(self.q_lsm6ds*self.q_offset_lsm6ds)
 
         return task.cont
 
@@ -181,5 +209,18 @@ class IMUVis(ShowBase):
         for gui_element_name in self.gui_elements.keys():
             new_value = str(self.gui_elements[gui_element_name]["value"]) + " " + self.gui_elements[gui_element_name]["unit"]
             self.gui_elements[gui_element_name]["value_node"].setText(new_value)
+    
+    def onZeroOrientationButtonPressed(self):
+        self.q_offset_bno08x = self.q_bno08x.conjugate()*self.q_offset
+        self.q_offset_bno055 = self.q_bno055.conjugate()*self.q_offset
+        self.q_offset_lsm6ds = self.q_lsm6ds.conjugate()*self.q_offset
+        return
+    
+    def onDeviceConnectionUpdate(self, device):
+        self.gui_elements["esp_connected"]["value"] = device.is_connected
+        if not device.is_connected:
+            self.gui_elements["esp_notify_rate"]["value"] = 0
+        self.updateGui()
+        return
 
     

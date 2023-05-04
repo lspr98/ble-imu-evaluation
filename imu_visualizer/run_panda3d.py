@@ -22,14 +22,27 @@ async def BLEread(app):
             await asyncio.sleep(0.05)
 
 async def BLEListen(app):
-    async with BleakClient(esp_mac_address) as device:
-        # TODO: repeadetly try to connect if not connected
-        await device.start_notify(esp_ble_char_uuid, app.onBLENotification)
-        app.gui_elements["esp_connected"]["value"] = True
-        app.updateGui()
-        # TODO: Is there a more elegant way?
-        while True:
-            await asyncio.sleep(2)
+    while True:
+        # repeadetly try to connect if not connected
+        await asyncio.sleep(1)
+        try:
+            print(f"Trying to connect to ESP with MAC {esp_mac_address}")
+            async with BleakClient(esp_mac_address, timeout=5.0) as device:
+                if device.is_connected:
+                    print("Connected.")
+                    await device.start_notify(esp_ble_char_uuid, app.onBLENotification)
+                else:
+                    print("Device not found.")
+                
+                # Poll connection status every two seconds
+                while True:
+                    app.onDeviceConnectionUpdate(device)
+                    if not device.is_connected:
+                        print("Device disconnected.")
+                        break
+                    await asyncio.sleep(2)
+        except:
+            print("Device not found.")
 
     return 0
 
