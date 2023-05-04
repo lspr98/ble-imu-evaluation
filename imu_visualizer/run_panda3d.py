@@ -3,7 +3,7 @@ import asyncio
 import time
 from bleak import BleakClient
 
-esp_mac_address = '10:91:A8:00:4C:B2'
+esp_mac_address = '08:08:08:08:08:08'
 esp_ble_char_uuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
 
