@@ -3,10 +3,13 @@ import asyncio
 import time
 from bleak import BleakClient
 
+# BLE MAC address of ESP32
 esp_mac_address = '08:08:08:08:08:08'
+# UUID of the BLE gatt characteristic that sends orientation data via notifications
 esp_ble_char_uuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
 
+# Main game loop running in paralell to BLEListen
 async def gameLoop(app):
     while True:
         app.taskMgr.step()
@@ -14,6 +17,7 @@ async def gameLoop(app):
     return 0
 
 
+# Read data from a gatt characteristic
 async def BLEread(app):
     async with BleakClient(esp_mac_address) as device:
         while True:
@@ -21,6 +25,7 @@ async def BLEread(app):
             app.setQuartFromByteArray(data)
             await asyncio.sleep(0.05)
 
+# Register callback to continuously notification data from characteristic
 async def BLEListen(app):
     while True:
         # repeadetly try to connect if not connected

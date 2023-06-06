@@ -41,6 +41,7 @@ void loop() {
   if(server->isConnected) {
     server->updateData();
   } else {
+    server->printInfo();
     Serial.println("Waiting for connection...");
     delay(1000);
   }

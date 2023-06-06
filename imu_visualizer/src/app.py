@@ -166,6 +166,7 @@ class IMUVis(ShowBase):
         self.taskMgr.add(self.updateRotation, "rotTest")
 
         
+    # Callback function that is called by bleak once new notifications are recieved
     def onBLENotification(self, characteristic: BleakGATTCharacteristic, data: bytearray):
         self.q_bno08x = self.byteArrayToQuart(data, 0)
         self.q_bno055 = self.byteArrayToQuart(data, 4)
@@ -183,6 +184,7 @@ class IMUVis(ShowBase):
             self.updateGui()
         return
 
+    # Convert a raw byte array to a quaternion
     def byteArrayToQuart(self, b_arr: bytearray, f_offset: int) -> Quat:
         # f_offset is the FLOAT offset, has to be multiples of 4 as a quaternion consists of 4 float values
         assert f_offset % 4 == 0, "Invalid byte offset"
@@ -191,31 +193,33 @@ class IMUVis(ShowBase):
         # Create a quaternion from that array
         return Quat(q_f[0], q_f[1], q_f[2], q_f[3])
 
+    # Convert a raw byte array to a Heading-Pitch-Roll orientation representation
     def byteArrayToHpr(self, b_arr: bytearray, f_offset: int):
         hpr_f = [struct.unpack('<f', b_arr[((i+f_offset)*4):(i+f_offset+1)*4])[0] for i in range(0, 3)]
         return hpr_f
     
+    # Update orientation of 3D-objects
     def updateRotation(self, task):
         self.cs_bno08x.setQuat(self.q_bno08x*self.q_offset_bno08x)
         self.cs_bno055.setQuat(self.q_bno055*self.q_offset_bno055)
         self.cs_lsm6ds.setQuat(self.q_lsm6ds*self.q_offset_lsm6ds)
 
         return task.cont
-
-    def updateRotationOffset(self):
-        return 0
     
+    # Updates GUI elements such as buttons or text fields
     def updateGui(self):
         for gui_element_name in self.gui_elements.keys():
             new_value = str(self.gui_elements[gui_element_name]["value"]) + " " + self.gui_elements[gui_element_name]["unit"]
             self.gui_elements[gui_element_name]["value_node"].setText(new_value)
     
+    # Apply current orientation as zero offset
     def onZeroOrientationButtonPressed(self):
         self.q_offset_bno08x = self.q_bno08x.conjugate()*self.q_offset
         self.q_offset_bno055 = self.q_bno055.conjugate()*self.q_offset
         self.q_offset_lsm6ds = self.q_lsm6ds.conjugate()*self.q_offset
         return
     
+    # Callback function that is called once connection status changes.
     def onDeviceConnectionUpdate(self, device):
         self.gui_elements["esp_connected"]["value"] = device.is_connected
         if not device.is_connected:

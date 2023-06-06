@@ -3,6 +3,7 @@
 
 BLESensorServer::BLESensorServer() {
     dataBuffer = new float [12];
+    esp_base_mac_addr_set(ESP_MAC_ADDRESS);
     BLEDevice::init("ESP32");
     server = BLEDevice::createServer();
     server->setCallbacks(this);
@@ -32,6 +33,7 @@ BLESensorServer::BLESensorServer() {
     advertisement->setMinPreferred(0x0);
     mac_address = BLEDevice::getAddress().toString();
     startAdvertising();
+
 };
 
 void BLESensorServer::onConnect(BLEServer* pServer) {

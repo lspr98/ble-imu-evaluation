@@ -22,4 +22,8 @@
 // I2C bus clock in herz
 #define I2C_CLK 400000
 
+// Custom base MAC address for the ESP32
+// Note: Last octet for BLE MAC address has +2 offset
+uint8_t const ESP_MAC_ADDRESS[] = {0x08, 0x08, 0x08, 0x08, 0x08, 0x06};
+
 #endif
